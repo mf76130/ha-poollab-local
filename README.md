@@ -3,6 +3,8 @@
 Lokale Bluetooth-Integration für **PoolLab 1.0** Wassertester in Home
 Assistant – über die offizielle BLE-API, ganz ohne Cloud.
 
+Ich arbeite hier mit KI.
+
 > **Status:** Dieser Code wurde anhand der offiziellen [PoolLab 1.0
 > Bluetooth API Dokumentation](https://poollab.org/static/api/BLE.pdf)
 > (Water-i.d. GmbH, Version 2) implementiert, aber **noch nicht an
