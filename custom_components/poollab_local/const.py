@@ -37,7 +37,13 @@ RESULT_ERR = 0x02
 
 # --- Timing ---
 DEFAULT_TIMEOUT = 20  # seconds; BLE connect + command round trip can be slow
-UPDATE_INTERVAL_SECONDS = 300  # default polling interval (5 minutes)
+
+# This integration is meant to be polled mainly via the "Refresh" button
+# (e.g. right after taking a measurement). The automatic background poll
+# interval is intentionally long - it's just a safety net for catching
+# measurements you forgot to manually trigger a refresh for, and it avoids
+# needless BLE traffic / connection conflicts with the LabCom app.
+UPDATE_INTERVAL_SECONDS = 6 * 60 * 60  # 6 hours
 
 # --- Measurement status codes (per flash_measurement_result.measure_status) ---
 MEASURE_STATUS_OK = 0
