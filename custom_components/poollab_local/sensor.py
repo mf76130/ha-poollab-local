@@ -13,6 +13,10 @@ from homeassistant.const import CONF_ADDRESS, PERCENTAGE
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.entity_registry import (
+    async_entries_for_config_entry,
+    async_get as async_get_entity_registry,
+)
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -37,8 +41,28 @@ async def async_setup_entry(
     address = entry.data[CONF_ADDRESS]
 
     known_types: set[int] = set()
+    entities: list[SensorEntity] = [PoolLabBatterySensor(coordinator, address)]
 
-    async_add_entities([PoolLabBatterySensor(coordinator, address)])
+    # Recreate a sensor for every measurement type ever seen on this device
+    # (from the entity registry), not just types present in the live
+    # coordinator data right now. Otherwise, after a restart where the
+    # device hasn't been read yet this session, these sensors would never
+    # be instantiated at all - and RestoreEntity can't restore a value for
+    # an entity object that doesn't exist.
+    prefix = f"{address}_measure_"
+    registry = async_get_entity_registry(hass)
+    for entity_entry in async_entries_for_config_entry(registry, entry.entry_id):
+        if not entity_entry.unique_id.startswith(prefix):
+            continue
+        try:
+            type_id = int(entity_entry.unique_id[len(prefix) :])
+        except ValueError:
+            continue
+        if type_id not in known_types:
+            known_types.add(type_id)
+            entities.append(PoolLabMeasurementSensor(coordinator, address, type_id))
+
+    async_add_entities(entities)
 
     @callback
     def _add_new_measurement_sensors() -> None:
