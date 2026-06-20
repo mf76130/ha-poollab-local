@@ -10,23 +10,20 @@ from .coordinator import PoolLabCoordinator
 
 PLATFORMS: list[Platform] = [Platform.SENSOR]
 
-type PoolLabConfigEntry = ConfigEntry[PoolLabCoordinator]
 
-
-async def async_setup_entry(hass: HomeAssistant, entry: PoolLabConfigEntry) -> bool:
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up PoolLab Local from a config entry."""
     address = entry.data[CONF_ADDRESS]
     coordinator = PoolLabCoordinator(hass, address)
     await coordinator.async_config_entry_first_refresh()
 
-    entry.runtime_data = coordinator
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 
 
-async def async_unload_entry(hass: HomeAssistant, entry: PoolLabConfigEntry) -> bool:
+async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok:
