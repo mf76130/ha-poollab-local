@@ -15,12 +15,16 @@ Assistant – über die offizielle BLE-API, ganz ohne Cloud.
 
 - Automatische Erkennung des PoolLab 1.0 über Home Assistants
   Bluetooth-Integration (Service-UUID-Match)
-- Liest beim Polling alle gespeicherten Messergebnisse vom Gerät aus
+- Liest auf Knopfdruck (oder im langen Hintergrund-Intervall) alle
+  gespeicherten Messergebnisse vom Gerät aus
   (`PCMD_API_GET_INFO` + `PCMD_API_GET_MEASURES`)
 - Legt pro gefundenem Messwert-Typ (pH, freies Chlor, Brom, …)
   automatisch einen eigenen Sensor an – nur die jeweils neueste
   Messung pro Typ wird als aktueller Wert übernommen
 - Batterie-Sensor
+- Button-Entität **"Jetzt abrufen"**, um sofort nach einer Messung
+  manuell einen BLE-Abruf auszulösen, statt auf den (bewusst langen)
+  Hintergrund-Poll zu warten
 - Volle Funktion ohne Internet/Cloud – funktioniert auch über einen
   ESPHome-Bluetooth-Proxy, wenn der HA-Host selbst keinen Bluetooth-
   Empfang hat
@@ -77,8 +81,14 @@ Batteriestand) und liest anschließend alle Messergebnisse über
 - Das Gerät erlaubt nur eine aktive BLE-Verbindung gleichzeitig –
   während des Pollings kann sich z.B. die PoolLab-App nicht
   gleichzeitig verbinden
-- Standard-Poll-Intervall: 5 Minuten (`UPDATE_INTERVAL_SECONDS` in
-  `const.py`)
+- **Kein automatisches Hintergrund-Polling.** Die Integration ruft den
+  Gerätestatus nur beim Einrichten einmalig ab und danach ausschließlich
+  auf Knopfdruck über die Button-Entität "Jetzt abrufen" – das vermeidet
+  unnötigen Bluetooth-Traffic und Verbindungskonflikte mit der LabCom App,
+  wenn das Gerät nur gelegentlich genutzt wird
+  (`UPDATE_INTERVAL_SECONDS = None` in `const.py`; bei Bedarf kann dort
+  stattdessen eine Sekundenzahl für ein festes Intervall eingetragen
+  werden)
 
 ## Lizenz
 

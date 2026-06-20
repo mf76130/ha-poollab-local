@@ -48,7 +48,11 @@ class PoolLabCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             hass,
             _LOGGER,
             name=f"PoolLab ({address})",
-            update_interval=timedelta(seconds=UPDATE_INTERVAL_SECONDS),
+            update_interval=(
+                timedelta(seconds=UPDATE_INTERVAL_SECONDS)
+                if UPDATE_INTERVAL_SECONDS
+                else None
+            ),
         )
         self.address = address
         # The device only accepts one central connection at a time, and a
