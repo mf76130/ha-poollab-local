@@ -15,7 +15,14 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, MANUFACTURER, MEASUREMENT_TYPES, MEASURE_STATUS_NAMES, MODEL
+from .const import (
+    DOMAIN,
+    IDEAL_RANGES,
+    MANUFACTURER,
+    MEASUREMENT_TYPES,
+    MEASURE_STATUS_NAMES,
+    MODEL,
+)
 from .coordinator import PoolLabCoordinator
 
 
@@ -127,7 +134,23 @@ class PoolLabMeasurementSensor(PoolLabBaseEntity, SensorEntity):
         record = self._record
         if not record:
             return {}
-        return {
+
+        attrs: dict[str, Any] = {
             "status": MEASURE_STATUS_NAMES.get(record["status"], "unknown"),
             "measure_id": record["measure_id"],
         }
+
+        ideal_range = IDEAL_RANGES.get(self.type_id)
+        if ideal_range is not None:
+            ideal_low, ideal_high = ideal_range
+            attrs["ideal_low"] = ideal_low
+            attrs["ideal_high"] = ideal_high
+            value = record["value"]
+            if value < ideal_low:
+                attrs["ideal_range_status"] = "zu niedrig"
+            elif value > ideal_high:
+                attrs["ideal_range_status"] = "zu hoch"
+            else:
+                attrs["ideal_range_status"] = "ok"
+
+        return attrs

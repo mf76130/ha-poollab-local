@@ -56,6 +56,20 @@ MEASURE_STATUS_NAMES = {
     MEASURE_STATUS_OVERRANGE: "overrange",
 }
 
+# --- Ideal ranges (target range for "healthy" pool water) ---
+# These are NOT part of the official BLE protocol - the device itself only
+# knows its technical measurement range (see MEASUREMENT_TYPES below).
+# These values were taken from the currently configured LabCom Cloud
+# targets (as of 2026) and are specific to one pool/setup; adjust freely
+# to match your own targets.
+IDEAL_RANGES: dict[int, tuple[float, float]] = {
+    1: (1.0, 3.0),      # Total Chlorine (ppm)
+    8: (0.5, 3.0),       # Free Chlorine (ppm)
+    9: (7.2, 7.4),        # pH
+    10: (80.0, 120.0),    # Total Alkalinity (ppm)
+    11: (20.0, 50.0),     # Cyanuric Acid (ppm)
+}
+
 # --- Measurement scenario types: type_id -> (name, unit, decimals) ---
 # "ppm" is used as native_unit_of_measurement for all non-pH scenarios, matching
 # the device's own unit naming in the API doc (mg/L mode is a device-side display
