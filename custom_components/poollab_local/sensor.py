@@ -1,0 +1,133 @@
+"""Sensor platform for PoolLab Local."""
+from __future__ import annotations
+
+from typing import Any
+
+from homeassistant.components.sensor import (
+    SensorDeviceClass,
+    SensorEntity,
+    SensorStateClass,
+)
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import CONF_ADDRESS, PERCENTAGE
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
+
+from .const import DOMAIN, MANUFACTURER, MEASUREMENT_TYPES, MEASURE_STATUS_NAMES, MODEL
+from .coordinator import PoolLabCoordinator
+
+
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    """Set up PoolLab sensors from a config entry."""
+    coordinator: PoolLabCoordinator = hass.data[DOMAIN][entry.entry_id]
+    address = entry.data[CONF_ADDRESS]
+
+    known_types: set[int] = set()
+
+    async_add_entities([PoolLabBatterySensor(coordinator, address)])
+
+    @callback
+    def _add_new_measurement_sensors() -> None:
+        if not coordinator.data:
+            return
+        new_entities = [
+            PoolLabMeasurementSensor(coordinator, address, type_id)
+            for type_id in coordinator.data.get("measurements", {})
+            if type_id not in known_types
+        ]
+        for entity in new_entities:
+            known_types.add(entity.type_id)
+        if new_entities:
+            async_add_entities(new_entities)
+
+    _add_new_measurement_sensors()
+    entry.async_on_unload(coordinator.async_add_listener(_add_new_measurement_sensors))
+
+
+class PoolLabBaseEntity(CoordinatorEntity[PoolLabCoordinator]):
+    """Common device info for all PoolLab entities."""
+
+    _attr_has_entity_name = True
+
+    def __init__(self, coordinator: PoolLabCoordinator, address: str) -> None:
+        super().__init__(coordinator)
+        self._address = address
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        info = (self.coordinator.data or {}).get("device_info", {})
+        return DeviceInfo(
+            identifiers={(DOMAIN, self._address)},
+            connections={("bluetooth", self._address)},
+            name="PoolLab",
+            manufacturer=MANUFACTURER,
+            model=MODEL,
+            sw_version=str(info.get("fw_version", "")) or None,
+        )
+
+
+class PoolLabBatterySensor(PoolLabBaseEntity, SensorEntity):
+    """Battery level of the PoolLab device."""
+
+    _attr_device_class = SensorDeviceClass.BATTERY
+    _attr_native_unit_of_measurement = PERCENTAGE
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_name = "Battery"
+
+    def __init__(self, coordinator: PoolLabCoordinator, address: str) -> None:
+        super().__init__(coordinator, address)
+        self._attr_unique_id = f"{address}_battery"
+
+    @property
+    def native_value(self) -> int | None:
+        if not self.coordinator.data:
+            return None
+        return self.coordinator.data.get("device_info", {}).get("battery_level")
+
+
+class PoolLabMeasurementSensor(PoolLabBaseEntity, SensorEntity):
+    """One sensor per measurement scenario seen on the device (e.g. pH, Free Chlorine)."""
+
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(
+        self, coordinator: PoolLabCoordinator, address: str, type_id: int
+    ) -> None:
+        super().__init__(coordinator, address)
+        self.type_id = type_id
+
+        name, unit, _decimals = MEASUREMENT_TYPES.get(
+            type_id, (f"Unknown scenario {type_id}", "ppm", 2)
+        )
+        self._attr_name = name
+        self._attr_native_unit_of_measurement = unit
+        self._attr_unique_id = f"{address}_measure_{type_id}"
+        if unit == "pH":
+            self._attr_device_class = SensorDeviceClass.PH
+
+    @property
+    def _record(self) -> dict[str, Any] | None:
+        if not self.coordinator.data:
+            return None
+        return self.coordinator.data.get("measurements", {}).get(self.type_id)
+
+    @property
+    def native_value(self) -> float | None:
+        record = self._record
+        return record["value"] if record else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        record = self._record
+        if not record:
+            return {}
+        return {
+            "status": MEASURE_STATUS_NAMES.get(record["status"], "unknown"),
+            "measure_id": record["measure_id"],
+        }

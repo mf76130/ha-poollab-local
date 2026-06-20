@@ -1,0 +1,20 @@
+{
+  "domain": "poollab_local",
+  "name": "PoolLab Local",
+  "codeowners": ["@mf76130"],
+  "config_flow": true,
+  "dependencies": ["bluetooth_adapters"],
+  "documentation": "https://github.com/mf76130/ha-poollab-local",
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/mf76130/ha-poollab-local/issues",
+  "requirements": ["bleak-retry-connector>=3.0.0"],
+  "version": "0.1.0",
+  "bluetooth": [
+    {
+      "service_uuid": "a7ee04a9-507b-4910-a528-b619d5501924"
+    },
+    {
+      "local_name": "PoolLab*"
+    }
+  ]
+}

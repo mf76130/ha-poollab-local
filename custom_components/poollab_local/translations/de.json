@@ -1,0 +1,23 @@
+{
+  "config": {
+    "flow_title": "PoolLab ({name})",
+    "step": {
+      "user": {
+        "title": "PoolLab-Gerät auswählen",
+        "description": "Wähle den PoolLab 1.0 Wassertester aus, mit dem per Bluetooth verbunden werden soll.",
+        "data": {
+          "address": "Gerät"
+        }
+      },
+      "confirm": {
+        "title": "PoolLab einrichten",
+        "description": "Möchtest du {name} einrichten?"
+      }
+    },
+    "abort": {
+      "no_devices_found": "Es wurden keine PoolLab-Geräte in der Nähe gefunden. Stelle sicher, dass das Gerät eingeschaltet und in Bluetooth-Reichweite ist (direkt oder über einen ESPHome-Bluetooth-Proxy).",
+      "not_supported": "Dieses Bluetooth-Gerät ist kein unterstütztes PoolLab-Gerät.",
+      "already_configured": "Dieses Gerät ist bereits eingerichtet."
+    }
+  }
+}
