@@ -13,6 +13,7 @@ from homeassistant.const import CONF_ADDRESS, PERCENTAGE
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
@@ -57,8 +58,14 @@ async def async_setup_entry(
     entry.async_on_unload(coordinator.async_add_listener(_add_new_measurement_sensors))
 
 
-class PoolLabBaseEntity(CoordinatorEntity[PoolLabCoordinator]):
-    """Common device info for all PoolLab entities."""
+class PoolLabBaseEntity(CoordinatorEntity[PoolLabCoordinator], RestoreEntity):
+    """Common device info for all PoolLab entities.
+
+    Combines CoordinatorEntity (live BLE data) with RestoreEntity, so the
+    last known value survives a Home Assistant restart and isn't lost just
+    because the device happens to be unreachable for the first poll after
+    startup (e.g. out of range, or busy with the LabCom app).
+    """
 
     _attr_has_entity_name = True
 
@@ -78,6 +85,13 @@ class PoolLabBaseEntity(CoordinatorEntity[PoolLabCoordinator]):
             sw_version=str(info.get("fw_version", "")) or None,
         )
 
+    @property
+    def available(self) -> bool:
+        # Always available: show the last known value (live or restored)
+        # rather than flipping to "unavailable" just because the most
+        # recent poll attempt failed or hasn't happened yet this session.
+        return True
+
 
 class PoolLabBatterySensor(PoolLabBaseEntity, SensorEntity):
     """Battery level of the PoolLab device."""
@@ -90,12 +104,24 @@ class PoolLabBatterySensor(PoolLabBaseEntity, SensorEntity):
     def __init__(self, coordinator: PoolLabCoordinator, address: str) -> None:
         super().__init__(coordinator, address)
         self._attr_unique_id = f"{address}_battery"
+        self._restored_value: int | None = None
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        last_state = await self.async_get_last_state()
+        if last_state is not None and last_state.state not in (None, "unknown", "unavailable"):
+            try:
+                self._restored_value = int(float(last_state.state))
+            except ValueError:
+                self._restored_value = None
 
     @property
     def native_value(self) -> int | None:
-        if not self.coordinator.data:
-            return None
-        return self.coordinator.data.get("device_info", {}).get("battery_level")
+        if self.coordinator.data:
+            value = self.coordinator.data.get("device_info", {}).get("battery_level")
+            if value is not None:
+                return value
+        return self._restored_value
 
 
 class PoolLabMeasurementSensor(PoolLabBaseEntity, SensorEntity):
@@ -118,6 +144,29 @@ class PoolLabMeasurementSensor(PoolLabBaseEntity, SensorEntity):
         if unit == "pH":
             self._attr_device_class = SensorDeviceClass.PH
 
+        self._restored_value: float | None = None
+        self._restored_attrs: dict[str, Any] = {}
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        last_state = await self.async_get_last_state()
+        if last_state is not None and last_state.state not in (None, "unknown", "unavailable"):
+            try:
+                self._restored_value = float(last_state.state)
+            except ValueError:
+                self._restored_value = None
+            self._restored_attrs = {
+                key: last_state.attributes[key]
+                for key in (
+                    "status",
+                    "measure_id",
+                    "ideal_low",
+                    "ideal_high",
+                    "ideal_range_status",
+                )
+                if key in last_state.attributes
+            }
+
     @property
     def _record(self) -> dict[str, Any] | None:
         if not self.coordinator.data:
@@ -127,13 +176,15 @@ class PoolLabMeasurementSensor(PoolLabBaseEntity, SensorEntity):
     @property
     def native_value(self) -> float | None:
         record = self._record
-        return record["value"] if record else None
+        if record:
+            return record["value"]
+        return self._restored_value
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         record = self._record
         if not record:
-            return {}
+            return self._restored_attrs
 
         attrs: dict[str, Any] = {
             "status": MEASURE_STATUS_NAMES.get(record["status"], "unknown"),

@@ -44,6 +44,14 @@ class PoolLabRefreshButton(CoordinatorEntity[PoolLabCoordinator], ButtonEntity):
         self._attr_unique_id = f"{address}_refresh_button"
 
     @property
+    def available(self) -> bool:
+        # Critical: never tie this to coordinator.last_update_success.
+        # If a refresh attempt fails, the *only* way to retry is this
+        # button - making it unavailable after a failed poll would create
+        # a permanent deadlock (no auto-polling, no working retry button).
+        return True
+
+    @property
     def device_info(self) -> DeviceInfo:
         info = (self.coordinator.data or {}).get("device_info", {})
         return DeviceInfo(

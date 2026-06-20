@@ -8,7 +8,7 @@
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/mf76130/ha-poollab-local/issues",
   "requirements": ["bleak-retry-connector>=3.0.0"],
-  "version": "0.3.0",
+  "version": "0.4.0",
   "bluetooth": [
     {
       "service_uuid": "a7ee04a9-507b-4910-a528-b619d5501924"
